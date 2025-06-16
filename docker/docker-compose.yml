@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14
+    container_name: dwh_postgres
+    environment:
+      POSTGRES_USER: dwh_user
+      POSTGRES_PASSWORD: dwh_password
+      POSTGRES_DB: datawarehouse
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../datasets:/datasets
+      - ./init-scripts/postgres:/docker-entrypoint-initdb.d
+    networks:
+      - dwh_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dwh_user -d datawarehouse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Oracle Database XE (Express Edition)
+  oracle:
+    image: container-registry.oracle.com/database/express:latest
+    container_name: dwh_oracle
+    environment:
+      ORACLE_PWD: dwh_password
+      ORACLE_CHARACTERSET: AL32UTF8
+    ports:
+      - "1521:1521"
+      - "5500:5500"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+      - ../datasets:/datasets
+      - ./init-scripts/oracle:/opt/oracle/scripts/startup
+    networks:
+      - dwh_network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    # Oracle XE requires significant resources
+    shm_size: '2gb'
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  # Jupyter Notebook for data exploration and analysis
+  jupyter:
+    image: jupyter/datascience-notebook:latest
+    container_name: dwh_jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../notebooks:/home/jovyan/work
+      - ../datasets:/home/jovyan/datasets
+    networks:
+      - dwh_network
+    command: "start-notebook.sh --NotebookApp.token='dwh'"
+
+  # Data integration with Apache Airflow
+  airflow:
+    image: apache/airflow:2.6.1
+    container_name: dwh_airflow
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://dwh_user:dwh_password@postgres/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ../airflow/dags:/opt/airflow/dags
+      - ../airflow/plugins:/opt/airflow/plugins
+      - airflow_data:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    networks:
+      - dwh_network
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    command: bash -c "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com && airflow webserver & airflow scheduler"
+
+networks:
+  dwh_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  oracle_data:
+  airflow_data:

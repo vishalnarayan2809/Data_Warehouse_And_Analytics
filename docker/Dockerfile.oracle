@@ -1,0 +1,42 @@
+# Oracle Database Setup for Data Warehouse
+# This Dockerfile is provided as a reference implementation.
+# For actual deployments, use the official Oracle Container Registry image.
+
+FROM container-registry.oracle.com/database/express:latest
+
+# Environment variables
+ENV ORACLE_SID=XE \
+    ORACLE_PDB=XEPDB1 \
+    ORACLE_PWD=dwh_password \
+    ORACLE_CHARACTERSET=AL32UTF8
+
+# Create directory for scripts and data
+RUN mkdir -p /opt/oracle/scripts/setup /opt/oracle/scripts/startup /opt/oracle/oradata
+
+# Copy setup scripts
+COPY ./init-scripts/oracle/01-init-schemas.sql /opt/oracle/scripts/setup/
+COPY ./init-scripts/oracle/02-init-users.sql /opt/oracle/scripts/setup/
+
+# Set up the Oracle database
+USER oracle
+WORKDIR /home/oracle
+
+# The container will run the following automatically:
+# 1. Setup scripts in /opt/oracle/scripts/setup/ (only during first startup)
+# 2. Startup scripts in /opt/oracle/scripts/startup/ (every startup)
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5m --retries=3 \
+  CMD $ORACLE_HOME/bin/sqlplus -s sys/$ORACLE_PWD@localhost:1521/$ORACLE_SID as sysdba << EOF \
+    SET HEADING OFF; \
+    SELECT 'Database is ready' FROM dual; \
+    EXIT; \
+EOF
+
+# Expose ports
+EXPOSE 1521 5500
+
+# Oracle data volume
+VOLUME ["/opt/oracle/oradata"]
+
+# The default command is defined in the base image

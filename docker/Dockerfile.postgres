@@ -1,0 +1,30 @@
+# PostgreSQL Database Setup for Data Warehouse
+FROM postgres:14
+
+# Environment variables will be provided in docker-compose.yml:
+# POSTGRES_USER: dwh_user
+# POSTGRES_PASSWORD: dwh_password
+# POSTGRES_DB: datawarehouse
+
+# Copy initialization scripts
+COPY ./init-scripts/postgres/ /docker-entrypoint-initdb.d/
+
+# Set up configuration for optimal data warehouse performance
+RUN echo "shared_buffers = 1GB" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "work_mem = 50MB" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "maintenance_work_mem = 256MB" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "effective_cache_size = 3GB" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "synchronous_commit = off" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "checkpoint_timeout = 10min" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_wal_size = 1GB" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "random_page_cost = 1.1" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "effective_io_concurrency = 200" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_parallel_workers_per_gather = 2" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_parallel_workers = 4" >> /usr/share/postgresql/postgresql.conf.sample
+
+# Expose PostgreSQL port
+EXPOSE 5432
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD pg_isready -U $POSTGRES_USER -d $POSTGRES_DB || exit 1
