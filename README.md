@@ -8,13 +8,16 @@ This project demonstrates a modern, scalable data warehousing and analytics solu
 
 The architecture follows the Medallion Architecture with **Bronze**, **Silver**, and **Gold** layers, deployed across containerized environments with support for multiple database platforms:
 
-![Data Architecture](docs/data_architecture.png)
-
 1. **Bronze Layer**: Ingests raw data as-is from source systems via automated ETL pipelines.
 2. **Silver Layer**: Implements data cleansing, standardization, and normalization processes to prepare data for analysis.
 3. **Gold Layer**: Provides business-ready dimensional models (star schema) optimized for reporting and analytics.
 
 ---
+
+### ERD
+![erd](https://github.com/user-attachments/assets/dcc67c84-5b74-49a1-b42f-123370d6ed44)
+
+
 ## 📖 Project Overview
 
 This enterprise-grade platform includes:
